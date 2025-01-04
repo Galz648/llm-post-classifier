@@ -10,7 +10,7 @@ from auto_post_classifier.gpt_handler import GPT_ERROR_REASONS
 client = TestClient(main.app)
 sample_name = "sample_1.json"
 sample_path = f"tests/samples/{sample_name}"
-os.environ["MOCK_FILE"] = f"mock/{sample_name}"
+# os.environ["MOCK_FILE"] = f"mock/{sample_name}"
 
 
 def set_up_tests():
