@@ -12,51 +12,68 @@ This should get you all you need.
 
 Code that doesn't pass the tests in [`code_style_validation`] target of the `Makefile` won't be accepted.
 
-## Run the script
+## Run the app
 
-The script should be installed as an executable in the environment created by `poetry` (see above).
-It is possible to run the script in one of two ways:
+first install the dependencies using poetry
 
-### Directly
-
-```
-poetry run python auto_post_classifier/main.py
+```bash
+# inside the root direcroy
+poetry install
 ```
 
-Use this method during dev.
+It is needed to create a `.env` file contains the necessary information for the app
+to run. The field that needed to be defined can be found in the file: `example.env`
 
-### install as systemd service
+After that, run the app using
 
+```bash
+poetry run uvicorn main:app --host 0.0.0.0 --port 80 --reload
 ```
-sudo cp auto-post-classifier.service /etc/systemd/system/auto-post-classifier.service
-```
-
-### Indirectly
-
-First start the environment with `poetry shell` executed from the project's root directory and then simply execute `auto-post-classifier`
 
 ## install poetry
 
 https://python-poetry.org/docs/
 
-## interaction with the production
+### debug with vscode
+
+configure a launch.json for attching python process and run the program using
 
 ```
-# scp
+ python -m debugpy --listen 5678 auto_post_classifier/main.py --api -d data/AntiIsraeli.csv
 ```
 
-### interaction with the systemd service
+### pytest
+
+solve jupyter warining:
 
 ```
-# start the service
-sudo systemctl start auto-post-classifier
+export JUPYTER_PLATFORM_DIRS=1
+```
 
-# stop the service
-sudo systemctl stop auto-post-classifier
+run only my-py test:
 
-# see status (and runtime logs)
-sudo systemctl status auto-post-classifier
+```
+pytest --mypy -m mypy
+```
 
-# see past logs
-journalctl -u auto-post-classifier --since yesterday
+### generate testing data set
+1. get a `data-classified.csv` file
+2. use `auto_post_classifier/testing_utils.py` to generate a sample.json file.
+3. run the test using `pytest` from the root directory
+
+## building the docker
+
+```bash
+docker build -t auto-post-classifier .
+```
+
+## running the docker
+
+running the docker using the docker compose file:
+
+```bash
+docker compose up
+
+```
+you need to add the .env file to your main working directory.
 ```
