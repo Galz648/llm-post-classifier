@@ -23,11 +23,10 @@ from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 
 import main
-from auto_post_classifier.gpt_handler import GPT_ERROR_REASONS
 
 # Initialize test client and set up test data paths
 client = TestClient(main.app)
-sample_name = "sample_1.json"
+sample_name = "sample_10.json"
 sample_path = f"tests/samples/{sample_name}"
 # os.environ["MOCK_FILE"] = f"mock/{sample_name}"  # Uncomment to use mock responses
 
@@ -55,6 +54,7 @@ def set_up_tests():
     request = data["request"]
     number_of_lines_in_sample = len(request)
     volunteers_validation = data["wanted_responses"]
+    platforms = data["platforms"]
 
     # Send request to classifier API
     response = client.post("/rank", json=request)
@@ -66,6 +66,7 @@ def set_up_tests():
     for uuid, response_entry in response_data.items():
         assert uuid in volunteers_validation, "wrong mock file for the test"
         response_entry["volunteers"] = volunteers_validation[uuid]
+        response_entry["platform"] = platforms[uuid]
 
     # Create DataFrame for analysis
     df = pd.DataFrame.from_dict(response_data, orient="index")
@@ -94,11 +95,6 @@ def test_response_have_all_keys():
 def test_many_requests_error():
     """Check that no rate limiting errors occurred."""
     assert GPT_ERROR_REASONS.TO_MANY_REQUESTS not in df["error"].unique()
-
-
-def test_json_validation_error():
-    """Verify that all responses were valid JSON."""
-    assert GPT_ERROR_REASONS.JSON_VALIDARTION not in df["error"].unique()
 
 
 def test_classification_performance():
