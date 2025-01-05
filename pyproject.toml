@@ -31,6 +31,9 @@ isort = "^5.12.0"
 httpx = "^0.25.1"
 pytest = "^7.4.3"
 pandas = "^2.1.1"
+matplotlib = "^3.7.1"
+seaborn = "^0.12.2"
+scikit-learn = "^1.3.0"
 
 [tool.poetry.scripts]
 auto-post-classifier = "auto_post_classifier.main:main"
