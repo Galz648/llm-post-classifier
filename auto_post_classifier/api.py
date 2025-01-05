@@ -1,6 +1,18 @@
+"""
+API Manager Module
+
+This module provides the main interface for processing posts through the GPT classifier.
+It handles request validation, GPT interactions, and response persistence.
+
+Classes:
+    PreRequestValidator: Validates posts before processing
+    ApiManager: Main manager for API operations
+"""
+
 import json
 import os
 import pathlib
+from typing import Dict
 
 from loguru import logger
 
@@ -12,60 +24,71 @@ from .models import Post
 from .utils import get_var_from_env
 
 
-# this calls is not really used right now
-# but it is here for show to consept of
-# the prerequest validator
-# now the validation is allways true
 class PreRequestValidator:
-    def __init__(self) -> None:
-        pass
-
-    def validate_length(self, post: Post):
+    """Validates posts before they are sent to GPT"""
+    
+    def validate_length(self, post: Post) -> bool:
+        """Check if post meets minimum length requirement"""
         return len(post.text) > 10
 
-    def validate(self, post: Post):
+    def validate(self, post: Post) -> bool:
+        """Main validation method for posts"""
         return True
 
 
 class ApiManager:
-    def get_config(self):
+    """Manages API operations including post processing and response handling"""
+
+    def get_config(self) -> Dict:
+        """Get current configuration of the API manager"""
         return {
             "gpt": str(self.gpt_handler),
             "response_persister": self.response_persister,
         }
 
     def __init__(self) -> None:
+        """Initialize API manager with necessary components"""
         self.pre_request_validator = PreRequestValidator()
         self.gpt_handler = gpt_handler.GptHandler(
             responses_path=pathlib.Path("responses.txt"),
             api_key=os.environ["OPENAI_API_KEY"],
+            request_config_path=pathlib.Path("config/request_config.json"),
             mock_file=get_var_from_env("MOCK_FILE"),
         )
         self.response_persister = response_persister.ResponsePersister(
-            pathlib.Path(os.environ["RESPONSES_DIR"]), consts.RESPONSE_PERSISTER_KEYS
+            pathlib.Path(os.environ["RESPONSES_DIR"]), 
+            consts.RESPONSE_PERSISTER_KEYS
         )
 
     def __str__(self) -> str:
+        """String representation of the API manager"""
         return json.dumps(self.__dict__, indent=2)
 
     @logger.catch
-    async def process_posts(self, json_posts: dict[str, Post]):
-        self.gpt_handler.reset_requests()
+    async def process_posts(self, json_posts: dict[str, Post]) -> Dict:
+        """
+        Process multiple posts through GPT classifier
+        
+        Args:
+            json_posts: Dictionary of posts with UUIDs as keys
+            
+        Returns:
+            dict: Classification results for each post
+        """
+        responses = {}
+        
         for uuid, post in json_posts.items():
             if self.pre_request_validator.validate(post):
-                self.gpt_handler.add_request(
-                    uuid, post.text, gpt_handler.GPT_MODEL.GPT_3_5_16k
-                )
+                response = await self.gpt_handler.send_request(post.text)
+                responses[uuid] = response
 
-        await self.gpt_handler.send_requests()
-        response = self.gpt_handler.read_responses()
-
-        if (len(json_posts)) != len(response):
+        if len(json_posts) != len(responses):
             logger.warning(
-                f"the number of request and response posts are not equale "
-                f"send {len(json_posts)} posts and got {len(response)} response"
+                f"Number of requests and responses not equal. "
+                f"Sent {len(json_posts)} posts and got {len(responses)} responses"
             )
 
-        # self.response_persister.persist_response(response)
-        self.gpt_handler._clean_response_path()
-        return response
+        # Optional: persist responses
+        # self.response_persister.persist_response(responses)
+        
+        return responses

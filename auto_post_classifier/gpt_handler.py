@@ -129,63 +129,33 @@ class GptHandler:
 
     def _load_request_config(self, config_path: Optional[Path]) -> Dict[str, Any]:
         """
-        Load request configuration from file or use default
+        Load request configuration from file
         
         Args:
             config_path: Path to configuration JSON file
             
         Returns:
             dict: Request configuration
-        """
-        if config_path and config_path.exists():
-            with open(config_path) as f:
-                return json.load(f)
         
-        # Default configuration
-        return {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": [{
-                        "type": "text",
-                        "text": "You will be provided with a social media post..."
-                    }]
-                }
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "tweet_sentiment_classification",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "category": {
-                                "type": "string",
-                                "enum": [
-                                    "ClassicAntisemitism",
-                                    "ProPalestine",
-                                    "Holocaust",
-                                    "AntiIsraeli",
-                                    "ProHamas",
-                                    "NonHarmful"
-                                ]
-                            },
-                            "reason": {
-                                "type": "string"
-                            }
-                        },
-                        "required": ["category", "reason"],
-                        "additionalProperties": False
-                    }
-                }
-            },
-            "temperature": 1,
-            "max_tokens": 10000,
-            "top_p": 1,
-            "frequency_penalty": 0,
-            "presence_penalty": 0
-        }
+        Raises:
+            ValueError: If no config file is provided or file doesn't exist
+        """
+        if not config_path:
+            raise ValueError(
+                "Request configuration file path is required. "
+                "Please provide a JSON file containing the OpenAI API request schema. "
+                "You can export this configuration from the OpenAI playground. "
+                "Expected location: <project_root>/config/request_config.json"
+            )
+        
+        if not config_path.exists():
+            raise ValueError(
+                f"Request configuration file not found at: {config_path}\n"
+                "Please ensure the file exists and contains a valid OpenAI API request schema. "
+            )
+        
+        with open(config_path) as f:
+            return json.load(f)
 
     async def send_request(self, text: str, model: str = GPT_MODEL.GPT_4_MINI) -> Dict[str, Any]:
         """
@@ -209,7 +179,7 @@ class GptHandler:
                 messages=messages,
                 response_format=self.request_config["response_format"],
                 temperature=self.request_config["temperature"],
-                max_tokens=self.request_config["max_tokens"],
+                max_completion_tokens=self.request_config["max_completion_tokens"],
                 top_p=self.request_config["top_p"],
                 frequency_penalty=self.request_config["frequency_penalty"],
                 presence_penalty=self.request_config["presence_penalty"]
@@ -233,6 +203,7 @@ class GptHandler:
                 }
                 
         except Exception as e:
+            raise e
             logger.error(f"Error processing request: {e}")
             return {
                 "text": text,
