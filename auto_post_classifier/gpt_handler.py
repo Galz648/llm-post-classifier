@@ -1,282 +1,243 @@
+"""
+GPT Handler Module
+
+This module provides functionality to interact with OpenAI's GPT models for text classification.
+It supports configurable request schemas and response validation through external configuration files.
+
+Classes:
+    GPT_MODEL: Available GPT models
+    GPT_ERROR_REASONS: Possible error types
+    ResponseValidator: Validates GPT responses
+    GptHandler: Main handler for GPT API interactions
+"""
+
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import jinja2
-import jsonschema
 from loguru import logger
-
-from .api_request_parallel_processor import process_api_requests
-from .consts import DEFAULT_INVALID_JSON_RESPONSES, DEFAULT_PROMPTS_PATH, WEIGHTS
-from .utils import generate_uuid
+from openai import OpenAI
+# import openai
 
 
-# todo: from python 3.11 its is possible to use string enums
 class GPT_MODEL:
-    GPT_3_5_16k = "gpt-3.5-turbo-16k"
+    """Available GPT models for classification"""
+    GPT_4_MINI = "gpt-4o-mini"
 
 
 class GPT_ERROR_REASONS:
+    """Possible error reasons during API interaction"""
     TO_MANY_REQUESTS = "many_requests"
-    JSON_VALIDARTION = "validate_json"
+    JSON_VALIDATION = "json_validation"
     CANT_OPEN_RESPONSE_JSON = "cant_open_response_json"
 
 
 class ResponseValidator:
-    def __init__(self) -> None:
-        self.validators = [self.validate_json_schema, self.validate_explenation]
+    """Validates responses from GPT API against expected schema"""
 
-    def validate_json_schema(self, response_dict: dict):
-        # Define the JSON schema
-        schema = {
-            "type": "object",
-            "properties": {"summary": {"type": "string"}},
-            "patternProperties": {
-                ".*_exp$": {"type": "string"},
-                ".*_rnk$": {"enum": [0, 1, -1, "0", "1", "-1"]},
-            },
-            "additionalProperties": False,
-            "required": ["summary"],
-        }
+    def __init__(self, valid_categories: list[str]) -> None:
+        """
+        Initialize validator with configuration
+        
+        Args:
+            valid_categories: List of valid category values
+        """
+        self.validators = [self.validate_json_schema]
+        self.valid_categories = valid_categories
 
-        # Validate the JSON data against the schema
+    def validate_json_schema(self, response_dict: dict) -> bool:
+        """
+        Validates response against expected schema
+        
+        Args:
+            response_dict: Response dictionary from GPT
+            
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        required_fields = ["category", "reason"]
+        
         try:
-            jsonschema.validate(instance=response_dict, schema=schema)
+            # Check required fields
+            if not all(field in response_dict for field in required_fields):
+                return False
+            
+            # Validate category
+            if response_dict["category"] not in self.valid_categories:
+                return False
+                
+            # Validate reason is string and not empty
+            if not isinstance(response_dict["reason"], str) or not response_dict["reason"]:
+                return False
+                
             return True
-        except jsonschema.exceptions.ValidationError as e:
-            logger.warning(f"JSON is not valid: {e.message}")
+        except Exception as e:
+            logger.warning(f"JSON validation error: {e}")
             return False
 
-    def validate_explenation(self, response_dict: dict):
-        for dimension in WEIGHTS:
-            if (
-                response_dict[f"{dimension}_exp"]
-                == f"-1, 0, or 1 ranking for {dimension}"
-            ):
-                logger.warning("validation error")
-                return False
-        return True
-
-    def validate(self, response: str) -> tuple[bool, str, dict]:
-        response_dict = json.loads(response)
-        for validator in self.validators:
-            if not validator(response_dict):
-                return (False, validator.__name__, response_dict)
-
-        return (True, "", response_dict)
+    def validate(self, response: dict) -> tuple[bool, str, dict]:
+        """
+        Main validation method
+        
+        Args:
+            response: Response dictionary to validate
+            
+        Returns:
+            tuple: (is_valid, error_message, response_dict)
+        """
+        try:
+            if not self.validate_json_schema(response):
+                return (False, "validate_json_schema", response)
+            return (True, "", response)
+        except Exception as e:
+            logger.error(f"Validation error: {e}")
+            return (False, "validation_error", {})
 
 
 class GptHandler:
-    def __str__(self) -> str:
-        return json.dumps(
-            {
-                "api_key": self.api_key,
-                "mock_file": self.mock_file,
-            }
-        )
-
-    def build_prompt(self, text):
-        user_prompt = self.user_prompt_template.render(text=text)
-        sys_prompt = self.system_prompt_template.render()
-        return (user_prompt, sys_prompt)
+    """Handles interactions with OpenAI's GPT API"""
 
     def __init__(
         self,
         responses_path: Path,
         api_key: str,
+        request_config_path: Optional[Path] = None,
         mock_file: Optional[str] = None,
-        invalid_json_responses_dir=None,
-        user_template: str = "gpt3_5_user.prompt",
-        system_template: str = "gpt3_5_system.prompt",
-        prompts_dir_path: str = None,  # type: ignore
     ) -> None:
-        self.requests: list[dict] = []
-        self.responses_path: Path = responses_path
-        self.api_key: str = api_key
-        self.response_validator: ResponseValidator = ResponseValidator()
-        self.mock_file: Optional[str] = mock_file
+        """
+        Initialize GPT handler
+        
+        Args:
+            responses_path: Path to store responses
+            api_key: OpenAI API key
+            request_config_path: Path to request configuration JSON
+            mock_file: Optional mock response file for testing
+        """
+        self.client = OpenAI(api_key=api_key)
+        self.responses_path = responses_path
+        self.mock_file = mock_file
+        
+        # Load request configuration
+        self.request_config = self._load_request_config(request_config_path)
+        
+        # Initialize validator with categories from config
+        valid_categories = self.request_config["response_format"]["json_schema"]["schema"][
+            "properties"]["category"]["enum"]
+        self.response_validator = ResponseValidator(valid_categories)
 
-        if prompts_dir_path is None:
-            prompts_dir_path = os.environ.get("PROMPTS_PATH", DEFAULT_PROMPTS_PATH)
+    def _load_request_config(self, config_path: Optional[Path]) -> Dict[str, Any]:
+        """
+        Load request configuration from file or use default
+        
+        Args:
+            config_path: Path to configuration JSON file
+            
+        Returns:
+            dict: Request configuration
+        """
+        if config_path and config_path.exists():
+            with open(config_path) as f:
+                return json.load(f)
+        
+        # Default configuration
+        return {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": [{
+                        "type": "text",
+                        "text": "You will be provided with a social media post..."
+                    }]
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "tweet_sentiment_classification",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "category": {
+                                "type": "string",
+                                "enum": [
+                                    "ClassicAntisemitism",
+                                    "ProPalestine",
+                                    "Holocaust",
+                                    "AntiIsraeli",
+                                    "ProHamas",
+                                    "NonHarmful"
+                                ]
+                            },
+                            "reason": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["category", "reason"],
+                        "additionalProperties": False
+                    }
+                }
+            },
+            "temperature": 1,
+            "max_tokens": 10000,
+            "top_p": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0
+        }
 
-        self.jinja_environment = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(prompts_dir_path),
-            autoescape=jinja2.select_autoescape(),
-        )
-        self.user_prompt_template = self.jinja_environment.get_template(user_template)
-        self.system_prompt_template = self.jinja_environment.get_template(
-            system_template
-        )
-
-        if invalid_json_responses_dir is None:
-            invalid_json_responses_dir = os.environ.get(
-                "INVALID_JSON_RESPONSES_DIR", DEFAULT_INVALID_JSON_RESPONSES
-            )
-
-        self.invalid_json_responses_dir: Path = Path(invalid_json_responses_dir)
-
-        logger.warning(f"api key: {self.api_key}")
-        logger.warning(f"mock file: {self.mock_file}")
-
-        self._clean_response_path()
-        self._handle_mock()
-
-    def _clean_response_path(self):
-        if self.responses_path.exists():
-            self.responses_path.unlink()
-
-    def _handle_mock(self):
-        if self.mock_file is not None:
-            logger.warning(f"using mock response file: {self.mock_file}")
-            self.responses_path = Path(self.mock_file)
-
-    def add_request(self, uuid: str, text: str, model: str) -> None:
-        user_prompt, sys_prompt = self.build_prompt(text)
-        self.requests.append(
-            {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "metadata": {"text": text, "uuid": uuid},
-            }
-        )
-
-    def reset_requests(self):
-        self.requests = []
-
-    async def send_requests(self):
-        logger.info(f"process {len(self.requests)} requests")
-        if self.mock_file is None:
-            await process_api_requests(self.requests, self.responses_path, self.api_key)
-
-    def _read_single_response(self, line: str):
-        try:  # when getting wrong json from open ai, probably mocking problem
-            full_response: list = json.loads(line)
-        except json.decoder.JSONDecodeError:
-            uuid = generate_uuid()
-            response = self._handle_parsing_error(
-                line, uuid, GPT_ERROR_REASONS.CANT_OPEN_RESPONSE_JSON
-            )
-            self.responses_dict[uuid] = response
-            return
-
-        # the metada is the last entry
+    async def send_request(self, text: str, model: str = GPT_MODEL.GPT_4_MINI) -> Dict[str, Any]:
+        """
+        Send a classification request to GPT
+        
+        Args:
+            text: Text to classify
+            model: GPT model to use
+            
+        Returns:
+            dict: Classification result with category and reason
+        """
         try:
-            metadata = full_response[-1]
-            uuid = metadata["uuid"]
-        except TypeError:
-            uuid = generate_uuid()
-
-        try:
-            completion_response: str = full_response[1]["choices"][0]["message"][
-                "content"
-            ]
-
-        except TypeError:  # happens when getting to the tokens max capacity
-            response = self.handle_bad_validation(
-                GPT_ERROR_REASONS.TO_MANY_REQUESTS, metadata, {}
+            # Create messages with user content
+            messages = self.request_config["messages"].copy()
+            messages.append({"role": "user", "content": text})
+            
+            # Send request using configuration
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                response_format=self.request_config["response_format"],
+                temperature=self.request_config["temperature"],
+                max_tokens=self.request_config["max_tokens"],
+                top_p=self.request_config["top_p"],
+                frequency_penalty=self.request_config["frequency_penalty"],
+                presence_penalty=self.request_config["presence_penalty"]
             )
-            self.responses_dict[uuid] = response
-            return
-
-        try:
-            (
-                validation,
-                reasone,
-                completion_response_dict,
-            ) = self.response_validator.validate(completion_response)
-
-        except json.decoder.JSONDecodeError:
-            metadata
-            response = self.handle_bad_validation(
-                GPT_ERROR_REASONS.JSON_VALIDARTION, metadata, {}
-            )
-            self.responses_dict[uuid] = response
-            return
-
-        if validation:
-            response = self.handle_validate_response(metadata, completion_response_dict)
-        else:
-            response = self.handle_bad_validation(
-                reasone, metadata, completion_response_dict
-            )
-
-        self.responses_dict[uuid] = response
-
-    def read_responses(self):
-        """returns the responses generated by the async completion. returns the data
-        in a sorted manner according to the metadata."""
-
-        self.responses_dict = {}
-        with open(self.responses_path, "r") as file:
-            for line in file:
-                self._read_single_response(line)
-
-        return self.responses_dict
-
-    def _handle_parsing_error(
-        self, response: dict | list | str, uuid=None, reason="unknow"
-    ):
-        if uuid is None:
-            uuid = generate_uuid()
-
-        logger.error(f"bad parsing for {uuid}: {reason}")
-        inner_dir: Path = self.invalid_json_responses_dir / reason
-
-        if not inner_dir.exists():
-            inner_dir.mkdir(parents=True)
-
-        file_name = f"{uuid}.json"
-
-        with open(inner_dir / file_name, "w") as f:
-            if isinstance(response, dict) or isinstance(response, list):
-                json.dump(response, f)
-            elif isinstance(response, str):
-                f.write(response)
+            
+            response_content = json.loads(response.choices[0].message.content)
+            validation_result = self.response_validator.validate(response_content)
+            
+            if validation_result[0]:
+                return {
+                    "text": text,
+                    "category": response_content["category"],
+                    "reason": response_content["reason"],
+                    "error": ""
+                }
             else:
-                logger.error(
-                    f"unkwon response type for {uuid}. type is: {type(response)}"
-                )
+                return {
+                    "text": text,
+                    "error": validation_result[1],
+                    "raw_response": response_content
+                }
+                
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            return {
+                "text": text,
+                "error": str(e),
+                "raw_response": None
+            }
 
-        return {"error": reason, "uuid": uuid}
-
-    def handle_bad_validation(
-        self, reason: str, metadata: dict, completion_response_dict: dict
-    ):
-        completion_response_dict["text"] = metadata["text"]
-        completion_response_dict["error"] = reason
-        uuid = metadata["uuid"]
-        self._handle_parsing_error(completion_response_dict, uuid=uuid, reason=reason)
-        return completion_response_dict
-
-    def handle_validate_response(self, metadata: dict, completion_response_dict: dict):
-        completion_response_dict["text"] = metadata["text"]
-        completion_response_dict["error"] = ""
-        completion_response_dict["score"] = self.calculate_score(
-            completion_response_dict
-        )
-        return completion_response_dict
-
-    def calculate_score(self, completion_response_dict: dict):
-        rnk_mtpl_map = {-1: 0, 0: 0.5, 1: 1}
-        score = 0
-
-        for dimension in WEIGHTS:
-            score += (
-                rnk_mtpl_map[int(completion_response_dict[dimension + "_rnk"])]
-                * WEIGHTS[dimension]
-            )
-
-        score = round(score, 3)
-
-        return score
-
-    def _dump_invalid_json(self, uuid: str, completion_response_dict: dict | str):
-        if not self.invalid_json_responses_dir.exists():
-            self.invalid_json_responses_dir.mkdir()
-
-        with open(self.invalid_json_responses_dir / uuid, "w") as f:
-            json.dump(completion_response_dict, f)
+    # Remove or modify other methods that are no longer needed...
