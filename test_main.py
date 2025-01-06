@@ -74,9 +74,16 @@ def set_up_tests():
     # Create DataFrame for analysis
     df = pd.DataFrame.from_dict(response_data, orient="index")
     
-    # Generate comprehensive PDF report
+    # Generate reports
     report_generator = TestReportGenerator()
-    report_generator.generate_pdf_report(df)
+    
+    # Generate HTML report
+    html_path = "test_reports/classification_report.html"
+    report_generator.generate_report(df, html_path)
+    
+    # Generate PDF report with visualizations
+    pdf_path = "test_reports/classification_report.pdf"
+    report_generator.generate_pdf_report(df, pdf_path)
     
     # TODO: Remove temporary CSV creation step
     df.to_csv("test.csv")

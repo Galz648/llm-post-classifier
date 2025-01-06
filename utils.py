@@ -26,7 +26,8 @@ class TestReportGenerator:
 
     def __init__(self):
         """Initialize the report generator with template configuration"""
-        template_dir = Path(__file__).parent / "templates"
+        template_dir = Path(__file__).parent / "auto_post_classifier" / "templates"
+        print(template_dir)
         self.env = Environment(loader=FileSystemLoader(template_dir))
         self.styles = getSampleStyleSheet()
         self.title_style = ParagraphStyle(
