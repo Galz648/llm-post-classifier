@@ -14,6 +14,7 @@ The test suite requires:
 
 import json
 import os
+import json2table
 
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -22,11 +23,13 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 
+from utils import TestReportGenerator
+
 import main
 
 # Initialize test client and set up test data paths
 client = TestClient(main.app)
-sample_name = "sample_10.json"
+sample_name = "sample_1.json"
 sample_path = f"tests/samples/{sample_name}"
 # os.environ["MOCK_FILE"] = f"mock/{sample_name}"  # Uncomment to use mock responses
 
@@ -70,7 +73,11 @@ def set_up_tests():
 
     # Create DataFrame for analysis
     df = pd.DataFrame.from_dict(response_data, orient="index")
-
+    
+    # Generate comprehensive PDF report
+    report_generator = TestReportGenerator()
+    report_generator.generate_pdf_report(df)
+    
     # TODO: Remove temporary CSV creation step
     df.to_csv("test.csv")
     df = pd.read_csv("test.csv")

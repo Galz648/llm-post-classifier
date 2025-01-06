@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classification Report</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) { 
+            background-color: #f9f9f9; 
+        }
+        .match { 
+            background-color: #e6ffe6; 
+        }
+        .mismatch { 
+            background-color: #ffe6e6; 
+        }
+        .platform-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: #e0e0e0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Classification Report</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Post Text</th>
+                <th>Platform</th>
+                <th>Model Category</th>
+                <th>Volunteer Category</th>
+                <th>Model's Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr class="{{ 'match' if result.is_match else 'mismatch' }}">
+                <td>{{ result.text }}</td>
+                <td><span class="platform-tag">{{ result.platform }}</span></td>
+                <td>{{ result.model_category }}</td>
+                <td>{{ result.volunteer_category }}</td>
+                <td>{{ result.reason }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html> 
