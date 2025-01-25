@@ -26,14 +26,14 @@ class GPT_MODEL:
     """Available GPT models for classification"""
     GPT_4_MINI = "gpt-4o-mini"
 
-
+# TODO: consider transforming each error reason into a class that has a message and a code, while inheriting from some base class Error
 class GPT_ERROR_REASONS:
     """Possible error reasons during API interaction"""
     TO_MANY_REQUESTS = "many_requests"
     JSON_VALIDATION = "json_validation"
     CANT_OPEN_RESPONSE_JSON = "cant_open_response_json"
 
-
+# TODO: replace code with pydantic model
 class ResponseValidator:
     """Validates responses from GPT API against expected schema"""
 

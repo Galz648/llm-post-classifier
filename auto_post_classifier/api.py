@@ -78,6 +78,7 @@ class ApiManager:
         responses = {}
         
         for uuid, post in json_posts.items():
+            # TODO: validate posts in the route itself - not here, separation of concerns
             if self.pre_request_validator.validate(post):
                 response = await self.gpt_handler.send_request(post.text)
                 responses[uuid] = response
