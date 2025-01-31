@@ -35,7 +35,9 @@ class GPT_ERROR_REASONS:
 
 # TODO: replace code with pydantic model
 class ResponseValidator:
+    # TODO: validate json schema with pydantic
     """Validates responses from GPT API against expected schema"""
+
 
     def __init__(self, valid_categories: list[str]) -> None:
         """
@@ -48,6 +50,7 @@ class ResponseValidator:
         self.valid_categories = valid_categories
 
     def validate_json_schema(self, response_dict: dict) -> bool:
+        # TODO: validate json schema with pydantic
         """
         Validates response against expected schema
         
@@ -78,6 +81,7 @@ class ResponseValidator:
             return False
 
     def validate(self, response: dict) -> tuple[bool, str, dict]:
+        # TODO: validate json schema with pydantic
         """
         Main validation method
         
@@ -104,7 +108,6 @@ class GptHandler:
         responses_path: Path,
         api_key: str,
         request_config_path: Optional[Path] = None,
-        mock_file: Optional[str] = None,
     ) -> None:
         """
         Initialize GPT handler
@@ -113,11 +116,9 @@ class GptHandler:
             responses_path: Path to store responses
             api_key: OpenAI API key
             request_config_path: Path to request configuration JSON
-            mock_file: Optional mock response file for testing
         """
         self.client = OpenAI(api_key=api_key)
         self.responses_path = responses_path
-        self.mock_file = mock_file
         
         # Load request configuration
         self.request_config = self._load_request_config(request_config_path)
@@ -128,6 +129,7 @@ class GptHandler:
         self.response_validator = ResponseValidator(valid_categories)
 
     def _load_request_config(self, config_path: Optional[Path]) -> Dict[str, Any]:
+        # TODO: validate json schema with pydantic
         """
         Load request configuration from file
         
@@ -189,6 +191,7 @@ class GptHandler:
             validation_result = self.response_validator.validate(response_content)
             
             if validation_result[0]:
+                # TODO: cleaner with fastAPI
                 return {
                     "text": text,
                     "category": response_content["category"],
@@ -203,6 +206,7 @@ class GptHandler:
                 }
                 
         except Exception as e:
+            # TODO: fix this - code not reached
             raise e
             logger.error(f"Error processing request: {e}")
             return {

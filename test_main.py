@@ -14,7 +14,6 @@ The test suite requires:
 
 import json
 import os
-import json2table
 
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -28,6 +27,7 @@ from utils import TestReportGenerator
 import main
 
 # Initialize test client and set up test data paths
+# TODO: remove constants from the test file
 client = TestClient(main.app)
 sample_name = "sample_1.json"
 sample_path = f"tests/samples/{sample_name}"

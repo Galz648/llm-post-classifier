@@ -8,7 +8,7 @@ import pandas as pd
 
 output_path = "sample.json"  # output json path
 csv_file = "../data/data_classified.csv"  # input csv file
-n = 100  # number of posts to generate in sample.json
+n = 5  # number of posts to generate in sample.json
 
 df = pd.read_csv(csv_file)
 df = df.fillna("")
