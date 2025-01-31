@@ -18,7 +18,6 @@ from loguru import logger
 
 import auto_post_classifier.consts as consts
 import auto_post_classifier.gpt_handler as gpt_handler
-import auto_post_classifier.response_persister as response_persister
 
 from .models import Post
 from .utils import get_var_from_env
@@ -43,10 +42,10 @@ class ApiManager:
         """Get current configuration of the API manager"""
         return {
             "gpt": str(self.gpt_handler),
-            "response_persister": self.response_persister,
         }
 
     def __init__(self) -> None:
+        # TODO: move the constants to a separate file
         """Initialize API manager with necessary components"""
         self.pre_request_validator = PreRequestValidator()
         self.gpt_handler = gpt_handler.GptHandler(
@@ -54,10 +53,6 @@ class ApiManager:
             api_key=os.environ["OPENAI_API_KEY"],
             request_config_path=pathlib.Path("config/request_config.json"),
             mock_file=get_var_from_env("MOCK_FILE"),
-        )
-        self.response_persister = response_persister.ResponsePersister(
-            pathlib.Path(os.environ["RESPONSES_DIR"]), 
-            consts.RESPONSE_PERSISTER_KEYS
         )
 
     def __str__(self) -> str:
@@ -89,7 +84,5 @@ class ApiManager:
                 f"Sent {len(json_posts)} posts and got {len(responses)} responses"
             )
 
-        # Optional: persist responses
-        # self.response_persister.persist_response(responses)
         
         return responses
