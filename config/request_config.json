@@ -1,0 +1,52 @@
+{
+    "model": "gpt-4o-mini",
+    "messages": [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "You will be provided with a social merdia post, and your task is to classify its sentiment as ClassicAntisemitism, ProPalestine, Holocaust, AntiIsraeli, ProHamas or NonHarmful. exlain your reason for why you have choosen the category you have chosem. you shoud retrun a json that has the following format:\n\n{\"category\": the category you have chosen, \"reason\": the reason why you have chosen this category}"
+                }
+            ]
+        }
+    ],
+    "response_format": {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "tweet_sentiment_classification",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "ClassicAntisemitism",
+                            "ProPalestine",
+                            "Holocaust",
+                            "AntiIsraeli",
+                            "ProHamas",
+                            "NonHarmful"
+                        ],
+                        "description": "The sentiment category assigned to the tweet."
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Explanation for the chosen sentiment category."
+                    }
+                },
+                "required": [
+                    "category",
+                    "reason"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "temperature": 1,
+    "max_completion_tokens": 10000,
+    "top_p": 1,
+    "frequency_penalty": 0,
+    "presence_penalty": 0
+}

@@ -22,6 +22,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 
+from auto_post_classifier.gpt_handler import GPT_ERROR_REASONS
 from utils import TestReportGenerator
 
 import main
