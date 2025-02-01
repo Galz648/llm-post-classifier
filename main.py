@@ -3,6 +3,7 @@ import os
 import dotenv
 from fastapi import FastAPI
 from loguru import logger
+from pydantic import BaseModel
 
 import auto_post_classifier.api as api
 
@@ -12,8 +13,8 @@ api_manager = api.ApiManager()
 if not os.path.exists("logs"):
     os.mkdir("logs")
 
+# TODO: connect logger to cloud storage
 logger.add(os.path.join("logs", "file_{time}.log"))
-logger.info(api_manager.get_config())
 
 app = FastAPI(
     title="auto post classifier",
@@ -25,11 +26,12 @@ app = FastAPI(
 )
 
 
+class Posts(BaseModel):
+    data: dict[str, api.Post]
+
+
 @app.post("/rank")
-async def process_posts(json_posts: dict[str, api.Post]):
-    return await api_manager.process_posts(json_posts)
+async def process_posts(posts: Posts):
 
+    return await api_manager.process_posts(posts.data)
 
-@app.get("/config")
-def get_configuration():
-    return api_manager.get_config()

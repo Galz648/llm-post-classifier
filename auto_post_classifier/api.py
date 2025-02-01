@@ -27,12 +27,6 @@ from .utils import get_var_from_env
 class ApiManager:
     """Manages API operations including post processing and response handling"""
 
-    def get_config(self) -> Dict:
-        """Get current configuration of the API manager"""
-        return {
-            "gpt": str(self.gpt_handler),
-        }
-
     def __init__(self) -> None:
         # TODO: move the constants to a separate file
         """Initialize API manager with necessary components"""
@@ -63,10 +57,13 @@ class ApiManager:
             for uuid, post in json_posts.items():
                 # TODO: validate posts in the route itself - not here, separation of concerns
                 self.request_builder.add_text_support(post.text)
-            request_config = self.request_builder.build()
-            response = await self.gpt_handler.send_request(
-                RequestConfigAndModel(request_config=request_config, model="gpt-4o")
-            )
+                request_config = self.request_builder.build()
+                response = await self.gpt_handler.send_request(
+                    RequestConfigAndModel(
+                        request_config=request_config, model="gpt-4o"
+                    ),
+                    text=post.text,
+                )
 
             responses[uuid] = response
         except Exception as e:
