@@ -76,7 +76,10 @@ class GptHandler:
             # Create messages with user content
             messages = request_config.messages.copy()
             messages.append(
-                {"role": "user", "content": [{"type": "text", "text": text}]}
+                Message(
+                    role="user",
+                    content=[MessageContent(type="text", text=text)],
+                )
             )
 
             # Send request using configuration

@@ -1,5 +1,5 @@
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Dict, Any
 from pydantic import ValidationError
 
@@ -39,7 +39,14 @@ class JsonSchemaProperties(BaseModel):
 
 class JsonSchema(BaseModel):
     type: str
-    properties: JsonSchemaProperties
+    required: List[str]
+    additionalProperties: bool
+
+
+class Schema(BaseModel):
+    type: str
+    # properties: JsonSchemaProperties
+    properties: Dict[str, Any]
     required: List[str]
     additionalProperties: bool
 
@@ -60,7 +67,7 @@ class TuningParameters(BaseModel):
 class RequestConfigModel(BaseModel):
     model: str
     messages: List[Message]
-    response_format: ResponseFormat
+    response_format: Dict[str, Any]
     temperature: float
     max_completion_tokens: int
     top_p: float
@@ -75,30 +82,7 @@ class RequestBuilder:
         self.config: RequestConfigModel = RequestConfigModel.model_construct(
             model="gpt-4o",
             messages=[],
-            response_format=ResponseFormat(
-                type="json_schema",
-                json_schema=JsonSchema(
-                    type="object",
-                    properties=JsonSchemaProperties(
-                        category=[
-                            "ClassicAntisemitism",
-                            "ProPalestine",
-                            "Holocaust",
-                            "AntiIsraeli",
-                            "ProHamas",
-                            "NonHarmful",
-                        ],
-                        reason="string",
-                    ),
-                    required=["category", "reason"],
-                    additionalProperties=False,
-                ),
-            ),
-            temperature=0.7,
-            max_completion_tokens=100,
-            top_p=0.9,
-            frequency_penalty=0.0,
-            presence_penalty=0.0,
+            response_format={},
         )
 
     def build(self):
