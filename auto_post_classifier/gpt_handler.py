@@ -18,6 +18,7 @@ from loguru import logger
 from openai import OpenAI
 
 from auto_post_classifier.request_builder import (
+    RequestConfigAndModel,
     RequestConfigModel,
     Message,
     MessageContent,
@@ -60,7 +61,9 @@ class GptHandler:
         self.client = OpenAI(api_key=api_key)
 
     async def send_request(
-        self, text: str, request_config: RequestConfigModel, model: Any
+        self,
+        request_config_and_model: RequestConfigAndModel,
+        text: str,
     ) -> Dict[str, Any]:
         """
         Send a classification request to GPT
@@ -74,7 +77,8 @@ class GptHandler:
         """
         try:
             # Create messages with user content
-            messages = request_config.messages.copy()
+            # TODO: consider abstracting away the interaction with the request config
+            messages = request_config_and_model.request_config.messages.copy()
             messages.append(
                 Message(
                     role="user",
@@ -84,7 +88,7 @@ class GptHandler:
 
             # Send request using configuration
             response = self.client.chat.completions.create(
-                **request_config.model_dump()
+                **request_config_and_model.request_config.model_dump()
             )
 
             response_content = json.loads(response.choices[0].message.content)

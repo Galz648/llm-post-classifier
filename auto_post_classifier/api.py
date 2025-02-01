@@ -18,21 +18,10 @@ from loguru import logger
 
 import auto_post_classifier.consts as consts
 import auto_post_classifier.gpt_handler as gpt_handler
+from auto_post_classifier.request_builder import RequestBuilder, RequestConfigAndModel
 
 from .models import Post
 from .utils import get_var_from_env
-
-
-class PreRequestValidator:
-    """Validates posts before they are sent to GPT"""
-    
-    def validate_length(self, post: Post) -> bool:
-        """Check if post meets minimum length requirement"""
-        return len(post.text) > 10
-
-    def validate(self, post: Post) -> bool:
-        """Main validation method for posts"""
-        return True
 
 
 class ApiManager:
@@ -47,13 +36,12 @@ class ApiManager:
     def __init__(self) -> None:
         # TODO: move the constants to a separate file
         """Initialize API manager with necessary components"""
-        self.pre_request_validator = PreRequestValidator()
+
         self.gpt_handler = gpt_handler.GptHandler(
-            responses_path=pathlib.Path("responses.txt"),
             api_key=os.environ["OPENAI_API_KEY"],
-            request_config_path=pathlib.Path("config/request_config.json"),
-            mock_file=get_var_from_env("MOCK_FILE"),
         )
+
+        self.request_builder = RequestBuilder()
 
     def __str__(self) -> str:
         """String representation of the API manager"""
@@ -63,20 +51,27 @@ class ApiManager:
     async def process_posts(self, json_posts: dict[str, Post]) -> Dict:
         """
         Process multiple posts through GPT classifier
-        
+
         Args:
             json_posts: Dictionary of posts with UUIDs as keys
-            
+
         Returns:
             dict: Classification results for each post
         """
         responses = {}
-        
-        for uuid, post in json_posts.items():
-            # TODO: validate posts in the route itself - not here, separation of concerns
-            if self.pre_request_validator.validate(post):
-                response = await self.gpt_handler.send_request(post.text)
-                responses[uuid] = response
+        try:
+            for uuid, post in json_posts.items():
+                # TODO: validate posts in the route itself - not here, separation of concerns
+                self.request_builder.add_text_support(post.text)
+            request_config = self.request_builder.build()
+            response = await self.gpt_handler.send_request(
+                RequestConfigAndModel(request_config=request_config, model="gpt-4o")
+            )
+
+            responses[uuid] = response
+        except Exception as e:
+            logger.error(f"Error processing post {uuid}: {e}")
+            responses[uuid] = {"error": str(e)}
 
         if len(json_posts) != len(responses):
             logger.warning(
@@ -84,5 +79,4 @@ class ApiManager:
                 f"Sent {len(json_posts)} posts and got {len(responses)} responses"
             )
 
-        
         return responses

@@ -74,6 +74,9 @@ class RequestConfigModel(BaseModel):
     frequency_penalty: float
     presence_penalty: float
 
+class RequestConfigAndModel(BaseModel):
+    request_config: RequestConfigModel
+    model: str
 
 # End Generation Here
 class RequestBuilder:
@@ -89,16 +92,13 @@ class RequestBuilder:
         try:
             # validate the config
             RequestConfigModel.model_validate(self.config)
-            if self.config.messages == []:
+            if not self.config.messages:
                 raise ValueError("Messages must be provided")
         except ValidationError as e:
             print("Validation error:", e.json())
             raise e
 
-        def send_request():
-            return self.client.chat.completions.create(**self.config.model_dump())
-
-        return send_request
+        return self.config
 
     def add_text_support(self, text: str):
         # TODO: consider changing method name to "add_post_text",
