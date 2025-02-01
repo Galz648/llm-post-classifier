@@ -26,12 +26,6 @@ app = FastAPI(
 )
 
 
-class Posts(BaseModel):
-    data: dict[str, api.Post]
-
-
 @app.post("/rank")
-async def process_posts(posts: Posts):
-
-    return await api_manager.process_posts(posts.data)
-
+async def process_posts(posts: dict[str, api.Post]):
+    return await api_manager.process_posts(posts)

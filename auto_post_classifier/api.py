@@ -16,7 +16,6 @@ from typing import Dict
 
 from loguru import logger
 
-import auto_post_classifier.consts as consts
 import auto_post_classifier.gpt_handler as gpt_handler
 from auto_post_classifier.request_builder import RequestBuilder, RequestConfigAndModel
 
@@ -55,9 +54,11 @@ class ApiManager:
         responses = {}
         try:
             for uuid, post in json_posts.items():
-                # TODO: validate posts in the route itself - not here, separation of concerns
-                self.request_builder.add_text_support(post.text)
-                request_config = self.request_builder.build()
+
+                request_config = self.request_builder.add_text_support(
+                    post.text
+                ).build()
+                
                 response = await self.gpt_handler.send_request(
                     RequestConfigAndModel(
                         request_config=request_config, model="gpt-4o"
@@ -66,6 +67,7 @@ class ApiManager:
                 )
 
             responses[uuid] = response
+
         except Exception as e:
             logger.error(f"Error processing post {uuid}: {e}")
             responses[uuid] = {"error": str(e)}
