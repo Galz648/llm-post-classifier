@@ -12,15 +12,14 @@ Classes:
 import json
 import os
 import pathlib
-from typing import Dict
+from re import A
+from typing import Dict, List
 
 from loguru import logger
+from pydantic import ValidationError
 
 import auto_post_classifier.gpt_handler as gpt_handler
-from auto_post_classifier.request_builder import RequestBuilder, RequestConfigAndModel
-
-from .models import Post
-from .utils import get_var_from_env
+from auto_post_classifier.request_builder import RequestBuilder
 
 
 class ApiManager:
@@ -40,42 +39,7 @@ class ApiManager:
         """String representation of the API manager"""
         return json.dumps(self.__dict__, indent=2)
 
-    @logger.catch
-    async def process_posts(self, json_posts: dict[str, Post]) -> Dict:
-        """
-        Process multiple posts through GPT classifier
-
-        Args:
-            json_posts: Dictionary of posts with UUIDs as keys
-
-        Returns:
-            dict: Classification results for each post
-        """
-        responses = {}
-        try:
-            for uuid, post in json_posts.items():
-
-                request_config = self.request_builder.add_text_support(
-                    post.text
-                ).build()
-                
-                response = await self.gpt_handler.send_request(
-                    RequestConfigAndModel(
-                        request_config=request_config, model="gpt-4o"
-                    ),
-                    text=post.text,
-                )
-
-            responses[uuid] = response
-
-        except Exception as e:
-            logger.error(f"Error processing post {uuid}: {e}")
-            responses[uuid] = {"error": str(e)}
-
-        if len(json_posts) != len(responses):
-            logger.warning(
-                f"Number of requests and responses not equal. "
-                f"Sent {len(json_posts)} posts and got {len(responses)} responses"
-            )
-
-        return responses
+    async def send_requests(
+        self, requests: list[gpt_handler.RequestPayload]
+    ) -> List[gpt_handler.Response]:
+        return [await self.gpt_handler.send_request(request) for request in requests]

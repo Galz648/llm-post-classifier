@@ -13,18 +13,45 @@ Classes:
 
 import json
 
+from re import A
 from typing import Dict, Any
-from loguru import logger
 from openai import OpenAI
+from pydantic import BaseModel
 
+from auto_post_classifier.models import Post
 from auto_post_classifier.request_builder import (
-    RequestConfigAndModel,
     RequestConfigModel,
     Message,
     MessageContent,
 )
 
+
 # import openai
+class Response(BaseModel):
+    category: str
+    reason: str
+
+
+class RequestPayload(BaseModel):
+    request_config: RequestConfigModel
+
+
+# def create_request_payload(config: RequestConfigModel, post: Post) -> RequestPayload:
+#     """
+#     Combine configuration with a model to create a request payload
+
+#     Args:
+#         config: Request configuration model
+#         model: GPT model to use
+
+#     Returns:
+#         dict: Request payload
+#     """
+#     request_builder = RequestBuilder()
+#     request_builder.add_text_support(post.text)
+#     request_builder.add_image_support(post.image)
+
+#     return RequestPayload(request_config=request_builder.build(), post=post)
 
 
 class GPT_MODEL:
@@ -62,9 +89,8 @@ class GptHandler:
 
     async def send_request(
         self,
-        request_config_and_model: RequestConfigAndModel,
-        text: str,
-    ) -> Dict[str, Any]:
+        request_payload: RequestPayload,
+    ) -> Response:
         """
         Send a classification request to GPT
 
@@ -76,19 +102,10 @@ class GptHandler:
             dict: Classification result with category and reason
         """
         try:
-            # Create messages with user content
-            # TODO: consider abstracting away the interaction with the request config
-            messages = request_config_and_model.request_config.messages.copy()
-            messages.append(
-                Message(
-                    role="user",
-                    content=[MessageContent(type="text", text=text)],
-                )
-            )
-
+            print(request_payload.request_config.model_dump())
             # Send request using configuration
             response = self.client.chat.completions.create(
-                **request_config_and_model.request_config.model_dump()
+                **request_payload.request_config.model_dump()
             )
 
             response_content = json.loads(response.choices[0].message.content)
