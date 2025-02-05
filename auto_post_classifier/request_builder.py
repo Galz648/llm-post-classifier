@@ -115,6 +115,7 @@ class RequestBuilder:
 
         return self.config
 
+# TODO: change name 
     def add_text_support(self, text: str):
         # TODO: consider changing method name to "add_post_text",
 
