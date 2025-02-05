@@ -102,7 +102,6 @@ class GptHandler:
             dict: Classification result with category and reason
         """
         try:
-            print(request_payload.request_config.model_dump())
             # Send request using configuration
             response = self.client.chat.completions.create(
                 **request_payload.request_config.model_dump()
